@@ -1,0 +1,123 @@
+---
+- name: Validate module ali_vpc
+  hosts: localhost
+  remote_user: root
+
+  vars:
+    name: ansible-testacc-ali_vpc-module
+
+  roles:
+    - vpc
+
+  tasks:
+    - name: Changed. Create a new vpc with user_cidrs
+      alibaba.alicloud.ali_vpc:
+        cidr_block: '{{ vpc_cidr }}'
+        vpc_name: '{{ name }}-user_cidrs'
+        description: '{{ vpc_description }}'
+        user_cidrs:
+          - 172.16.100.0/24
+          - 172.16.101.0/24
+
+    - name: Get the existing vpc
+      alibaba.alicloud.ali_vpc_info:
+        name_prefix: '{{name}}'
+      register: vpcs
+
+# At present, it does not support modifying name
+#    - name: Changed. Modifying name.
+#      alibaba.alicloud.ali_vpc:
+#        cidr_block: '{{ vpc_cidr }}'
+#        name: '{{ item.vpc_name }}'
+#        new_name: '{{ item.vpc_name }}-modified'
+#      with_items: '{{vpcs.vpcs}}'
+
+    - name: Changed. Add Tags.
+      alibaba.alicloud.ali_vpc:
+        cidr_block: '{{ vpc_cidr }}'
+        name: '{{ item.vpc_name }}'
+        tags:
+          Test1: "add1"
+          Test2: "add2"
+      with_items: '{{vpcs.vpcs}}'
+
+    - name: Get the existing vpc
+      alibaba.alicloud.ali_vpc_info:
+        name_prefix: '{{name}}'
+
+    - name: Filter vpc using tags
+      alibaba.alicloud.ali_vpc_info:
+        tags:
+          Test1: "add1"
+
+    - name: Changed. Modify Tags.
+      alibaba.alicloud.ali_vpc:
+        cidr_block: '{{ vpc_cidr }}'
+        name: '{{ item.vpc_name }}'
+        tags:
+          Test1: "add1"
+          Test2: "add3"
+      with_items: '{{vpcs.vpcs}}'
+
+    - name: No Changed. No tags need to be added
+      alibaba.alicloud.ali_vpc:
+        cidr_block: '{{ vpc_cidr }}'
+        name: '{{ item.vpc_name }}'
+        tags:
+          Test1: "add1"
+          Test2: "add3"
+      with_items: '{{vpcs.vpcs}}'
+
+    - name: Get the existing vpc
+      alibaba.alicloud.ali_vpc_info:
+        name_prefix: '{{name}}'
+
+    - name: Changed. Removing tags.
+      alibaba.alicloud.ali_vpc:
+        cidr_block: '{{ vpc_cidr }}'
+        name: '{{ item.vpc_name }}'
+        purge_tags: True
+        tags:
+          Test1: "add1"
+      with_items: '{{vpcs.vpcs}}'
+
+    - name: No Changed. No tags need to be removed.
+      alibaba.alicloud.ali_vpc:
+        cidr_block: '{{ vpc_cidr }}'
+        name: '{{ item.vpc_name }}'
+        purge_tags: True
+        tags:
+          Test1: "add1"
+      with_items: '{{ vpcs.vpcs }}'
+
+    - name: Get the existing vpc
+      alibaba.alicloud.ali_vpc_info:
+        name_prefix: '{{ name }}'
+
+    - name: Changed. Modify description with vpc id.
+      alibaba.alicloud.ali_vpc:
+        vpc_id: '{{ item.id }}'
+        cidr_block: '{{ item.cidr_block }}'
+        name: '{{ item.vpc_name }}'
+        description: '{{ vpc_description }}-modified'
+      with_items: '{{vpcs.vpcs}}'
+
+    - name: Not Changed. No any attribute changed.
+      alibaba.alicloud.ali_vpc:
+        vpc_id: '{{ item.id }}'
+        cidr_block: '{{ item.cidr_block }}'
+        name: '{{ item.vpc_name }}'
+        description: '{{ vpc_description }}-modified'
+      with_items: '{{vpcs.vpcs}}'
+
+    - name: Get the existing vpc
+      alibaba.alicloud.ali_vpc_info:
+        name_prefix: '{{name}}'
+      register: vpcs
+
+    - name: Changed. Deleting vpcs
+      alibaba.alicloud.ali_vpc:
+        cidr_block: '{{ item.cidr_block }}'
+        name: '{{ item.vpc_name }}'
+        state: absent
+      with_items: '{{vpcs.vpcs}}'
